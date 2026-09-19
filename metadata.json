@@ -1,6 +1,6 @@
 {
   "name": "DAILY CHECK ALSUTERS",
-  "description": "Aplikasi observasi display harian 3 divisi (VM, Manager, PS) dengan tracking zonasi, verifikasi foto komparasi, push notification, dan export PDF.",
+  "description": "Aplikasi observasi display harian 3 divisi (VM, Manager, PS) dengan SLA pengerjaan 1 jam, link pengecekan Vercel, evaluasi pengisian departemen tercepat, dan leaderboard manager.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Department, DailyObservation, VMStandard, ChecklistItem, InspectionStatus } from '../types';
 import { MANAGERS, DEFAULT_CHECKLIST_TEMPLATE } from '../data/masterData';
+import { PhotoPickerInput } from './PhotoPickerInput';
 
 interface ObservationModalProps {
   isOpen: boolean;
@@ -314,60 +315,32 @@ export const ObservationModal: React.FC<ObservationModalProps> = ({
                   FOTO TEMUAN DISPLAY TIDAK STANDAR <span className="text-rose-500">*</span>
                 </label>
                 
-                {findingPhotoUrl ? (
-                  <div className="relative rounded-xl overflow-hidden border border-rose-300 group">
-                    <img
-                      src={findingPhotoUrl}
-                      alt="Temuan Tidak Standar"
-                      className="w-full h-48 object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setFindingPhotoUrl('')}
-                        className="px-3 py-1.5 bg-rose-600 text-white text-xs font-bold rounded-lg shadow-md hover:bg-rose-700"
-                      >
-                        Ganti Foto
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-rose-300 rounded-xl p-4 text-center bg-white hover:bg-rose-50/50 transition-colors">
-                    <Camera className="w-8 h-8 text-rose-400 mx-auto mb-2" />
-                    <p className="text-xs font-bold text-slate-700">Unggah Foto Temuan Display</p>
-                    <p className="text-[11px] text-slate-500 mb-3">Foto kondisi aktual yang tidak sesuai standar VM</p>
-                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>Ambil Kamera / Pilih Foto</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                    </label>
+                <PhotoPickerInput
+                  photoUrl={findingPhotoUrl}
+                  onPhotoChange={setFindingPhotoUrl}
+                  label=""
+                  cameraTitle="Ambil Foto Temuan Display"
+                  accentColor="rose"
+                />
 
-                    {/* Simulation demo quick photos */}
-                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-center gap-1.5">
-                      <span className="text-[10px] text-slate-400">Contoh Cepat Demo:</span>
-                      <button
-                        type="button"
-                        onClick={() => handleSimulateSamplePhoto('messy')}
-                        className="text-[10px] bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded text-slate-700 font-semibold"
-                      >
-                        Sofa Berantakan
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSimulateSamplePhoto('tag')}
-                        className="text-[10px] bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded text-slate-700 font-semibold"
-                      >
-                        Tableware Miring
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* Simulation demo quick photos */}
+                <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-center gap-1.5">
+                  <span className="text-[10px] text-slate-400">Contoh Cepat Demo:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleSimulateSamplePhoto('messy')}
+                    className="text-[10px] bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded text-slate-700 font-semibold"
+                  >
+                    Sofa Berantakan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSimulateSamplePhoto('tag')}
+                    className="text-[10px] bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded text-slate-700 font-semibold"
+                  >
+                    Tableware Miring
+                  </button>
+                </div>
               </div>
 
               {/* Description */}

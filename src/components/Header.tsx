@@ -4,7 +4,9 @@ import {
   Calendar as CalendarIcon, 
   ChevronLeft, 
   ChevronRight, 
-  FileDown
+  FileDown,
+  ClipboardList,
+  Trophy
 } from 'lucide-react';
 import { NotificationItem } from '../types';
 import managerLogo from '../assets/images/manager_logo_portrait_1789821725917.jpg';
@@ -15,6 +17,8 @@ interface HeaderProps {
   notifications: NotificationItem[];
   onOpenNotifications: () => void;
   onExportPDF: () => void;
+  activeTab: 'INSPECTION' | 'EVALUATION';
+  onTabChange: (tab: 'INSPECTION' | 'EVALUATION') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -22,7 +26,9 @@ export const Header: React.FC<HeaderProps> = ({
   onDateChange,
   notifications,
   onOpenNotifications,
-  onExportPDF
+  onExportPDF,
+  activeTab,
+  onTabChange
 }) => {
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -67,6 +73,40 @@ export const Header: React.FC<HeaderProps> = ({
               Standar VM • Temuan Manager • Penyelesaian PS
             </p>
           </div>
+        </div>
+
+        {/* Center Tab Switcher (Desktop) */}
+        <div className="hidden md:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <button
+            type="button"
+            onClick={() => onTabChange('INSPECTION')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeTab === 'INSPECTION'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ClipboardList className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Pemeriksaan Harian</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onTabChange('EVALUATION')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeTab === 'EVALUATION'
+                ? 'bg-indigo-600 text-white shadow-2xs'
+                : 'text-slate-600 hover:text-indigo-600'
+            }`}
+          >
+            <Trophy className={`w-3.5 h-3.5 ${activeTab === 'EVALUATION' ? 'text-amber-300' : 'text-amber-500'}`} />
+            <span>Evaluasi Pengisian & Ranking</span>
+            <span className={`text-[9px] px-1 py-0.2 rounded font-black ${
+              activeTab === 'EVALUATION' ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 text-slate-700'
+            }`}>
+              SLA 1 Jam
+            </span>
+          </button>
         </div>
 
         {/* Tanggal & Aksi */}
@@ -136,6 +176,35 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden sm:inline">Export PDF</span>
           </button>
         </div>
+      </div>
+
+      {/* Mobile Tab Switcher Bar */}
+      <div className="md:hidden flex border-t border-slate-200 bg-slate-50 px-4 py-1.5 gap-2">
+        <button
+          type="button"
+          onClick={() => onTabChange('INSPECTION')}
+          className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            activeTab === 'INSPECTION'
+              ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <ClipboardList className="w-3.5 h-3.5 text-indigo-600" />
+          <span>Pemeriksaan Harian</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onTabChange('EVALUATION')}
+          className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            activeTab === 'EVALUATION'
+              ? 'bg-indigo-600 text-white shadow-2xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Trophy className={`w-3.5 h-3.5 ${activeTab === 'EVALUATION' ? 'text-amber-300' : 'text-amber-500'}`} />
+          <span>Evaluasi Pengisian</span>
+        </button>
       </div>
     </header>
   );

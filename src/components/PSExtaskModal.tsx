@@ -3,6 +3,7 @@ import { X, Upload, Camera, CheckCircle2, Wrench, AlertTriangle, Sparkles, Arrow
 import confetti from 'canvas-confetti';
 import { Department, DailyObservation, VMStandard } from '../types';
 import { playNotificationChime } from '../utils/notification';
+import { PhotoPickerInput } from './PhotoPickerInput';
 
 interface PSExtaskModalProps {
   isOpen: boolean;
@@ -197,43 +198,13 @@ export const PSExtaskModal: React.FC<PSExtaskModalProps> = ({
               </button>
             </div>
 
-            {resolutionPhotoUrl ? (
-              <div className="relative rounded-xl overflow-hidden border border-emerald-300 group">
-                <img
-                  src={resolutionPhotoUrl}
-                  alt="Hasil Pengerjaan"
-                  className="w-full h-44 object-cover"
-                />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setResolutionPhotoUrl('')}
-                    className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg shadow-md hover:bg-emerald-700"
-                  >
-                    Ganti Foto
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-emerald-300 rounded-xl p-5 text-center bg-white hover:bg-emerald-50/50 transition-colors">
-                <Camera className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-800">Unggah Foto Sesudah Diperbaiki</p>
-                <p className="text-[11px] text-slate-500 mb-3">
-                  Tunjukkan display yang sudah rapi, bersih, dan sesuai standar VM
-                </p>
-                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs">
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>Ambil Kamera / Unggah Foto</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            )}
+            <PhotoPickerInput
+              photoUrl={resolutionPhotoUrl}
+              onPhotoChange={setResolutionPhotoUrl}
+              label=""
+              cameraTitle="Ambil Foto Hasil Perbaikan Display"
+              accentColor="emerald"
+            />
           </div>
 
           {/* PS Executor Selection */}

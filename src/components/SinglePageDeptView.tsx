@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle2, 
   AlertTriangle, 
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Department, DailyObservation, VMStandard, ZoneId, InspectionStatus } from '../types';
 import { ZONES, DEPARTMENTS, MANAGERS } from '../data/masterData';
+import { PhotoPickerInput } from './PhotoPickerInput';
 
 interface SinglePageDeptViewProps {
   currentDate: string;
@@ -87,11 +88,6 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
 
   const [savedAlert, setSavedAlert] = useState<string | null>(null);
 
-  // Hidden File Inputs for Direct Camera / File Upload
-  const managerFileInputRef = useRef<HTMLInputElement>(null);
-  const psFileInputRef = useRef<HTMLInputElement>(null);
-  const vmFileInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     const obs = observations.find(o => o.deptCode === currentDept.code && o.date === currentDate);
     const vm = vmStandards[currentDept.code];
@@ -131,17 +127,6 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
   // Find assigned PS object with phone number
   const assignedPsObj = currentDept.psList.find(p => p.name === assignedPs);
   const primaryPsWithPhone = currentDept.psList.find(p => !!p.phone) || currentDept.psList[0];
-
-  const handleFileChange = (file: File | undefined, setter: (url: string) => void) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setter(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
 
   const handleSaveManager = (e: React.FormEvent) => {
     e.preventDefault();
@@ -339,7 +324,7 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
             <a
               href={getWhatsAppUrl(
                 primaryPsWithPhone.phone,
-                `Halo Rekan PS ${primaryPsWithPhone.name}, terkait display harian departemen [${currentDept.code}] ${currentDept.name} (Manager: ${managerName}). Mohon bantuannya ya.`
+                `Halo Rekan PS *${primaryPsWithPhone.name}*, terkait display harian departemen *[${currentDept.code}] ${currentDept.name}* (Manager: ${managerName}).\n⏱️ Target SLA Pengerjaan: Maksimal 1 Jam.\n🔗 Link Pengecekan: https://dcalsuter2026.vercel.app/\nMohon bantuannya ya.`
               )!}
               target="_blank"
               rel="noopener noreferrer"
@@ -387,30 +372,19 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
             {isEditingVM ? (
               <form onSubmit={handleSaveVM} className="mt-2.5 space-y-2">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Upload / Ambil Foto</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={vmFileInputRef}
-                    onChange={(e) => handleFileChange(e.target.files?.[0], setVmPhotoUrl)}
-                    className="hidden"
+                  <PhotoPickerInput
+                    photoUrl={vmPhotoUrl}
+                    onPhotoChange={setVmPhotoUrl}
+                    label="Foto Acuan Standar VM"
+                    cameraTitle="Foto Standar Display VM"
+                    accentColor="indigo"
                   />
-                  <div className="flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => vmFileInputRef.current?.click()}
-                      className="flex-1 py-1.5 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center gap-1"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      <span>Kamera / Galeri</span>
-                    </button>
-                  </div>
                   <input
                     type="url"
                     value={vmPhotoUrl}
                     onChange={(e) => setVmPhotoUrl(e.target.value)}
-                    placeholder="Atau link foto https://..."
-                    className="w-full text-xs p-1.5 rounded-lg border border-slate-200 mt-1.5"
+                    placeholder="Atau masukkan URL foto https://..."
+                    className="w-full text-xs p-1.5 rounded-lg border border-slate-200 mt-2 bg-slate-50"
                   />
                 </div>
 
@@ -533,29 +507,15 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
 
               {/* Detail jika Ada Temuan */}
               {managerStatus === 'NON_STANDARD' && (
-                <div className="space-y-2 p-2 bg-rose-50 rounded-lg border border-rose-200 text-xs">
+                <div className="space-y-2.5 p-2.5 bg-rose-50 rounded-xl border border-rose-200 text-xs">
                   <div>
-                    <label className="block text-[11px] font-bold text-rose-900 mb-1">Foto Temuan</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      ref={managerFileInputRef}
-                      onChange={(e) => handleFileChange(e.target.files?.[0], setFindingPhotoUrl)}
-                      className="hidden"
+                    <PhotoPickerInput
+                      photoUrl={findingPhotoUrl}
+                      onPhotoChange={setFindingPhotoUrl}
+                      label="Foto Temuan (Kamera / Galeri)"
+                      cameraTitle="Ambil Foto Temuan Display"
+                      accentColor="rose"
                     />
-                    <button
-                      type="button"
-                      onClick={() => managerFileInputRef.current?.click()}
-                      className="w-full py-1.5 px-2 bg-white border border-rose-300 rounded text-rose-900 font-bold flex items-center justify-center gap-1"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      <span>{findingPhotoUrl ? 'Ganti Foto' : 'Ambil / Upload Foto Temuan'}</span>
-                    </button>
-                    {findingPhotoUrl && (
-                      <div className="mt-1.5 aspect-video rounded overflow-hidden border border-rose-300">
-                        <img src={findingPhotoUrl} alt="Foto Temuan" className="w-full h-full object-cover" />
-                      </div>
-                    )}
                   </div>
 
                   <div>
@@ -588,7 +548,7 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
                       <a
                         href={getWhatsAppUrl(
                           assignedPsObj.phone,
-                          `Halo Rekan PS ${assignedPsObj.name},\nAda temuan display harian di [${currentDept.code}] ${currentDept.name}:\n• Status: Temuan Non-Standar\n• Catatan: ${managerNotes || 'Mohon dicek dan dirapikan sesuai standar'}\n• Pelapor: Manager ${managerName}\n\nMohon bantuannya untuk segera ditindaklanjuti. Terima kasih!`
+                          `🚨 *DAILY CHECK ALSUTERS - TEMUAN DISPLAY*\n\nHalo Rekan PS *${assignedPsObj.name}*,\nAda temuan display harian di departemen *[${currentDept.code}] ${currentDept.name}*:\n\n📌 *Catatan Temuan:* ${managerNotes || 'Mohon dicek dan dirapikan sesuai standar VM'}\n👤 *Pelapor:* Manager ${managerName}\n⏱️ *Target SLA Pengerjaan:* Maksimal 1 Jam (harap segera diselesaikan)\n🔗 *Link Pengecekan & Update Foto:* https://dcalsuter2026.vercel.app/\n\nMohon bantuannya untuk segera ditindaklanjuti dan mengunggah foto hasil perbaikan di web. Terima kasih!`
                         )!}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -657,7 +617,7 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
                     <a
                       href={getWhatsAppUrl(
                         assignedPsObj.phone,
-                        `Halo ${assignedPsObj.name}, follow up perbaikan display [${currentDept.code}] ${currentDept.name}: "${currentObservation?.managerNotes || 'Mohon dirapikan'}". Apakah sudah selesai? Terima kasih!`
+                        `⏱️ *REMINDER SLA PERBAIKAN DISPLAY*\n\nHalo Rekan PS *${assignedPsObj.name}*,\nFollow up perbaikan display harian di *[${currentDept.code}] ${currentDept.name}*:\n• Catatan: "${currentObservation?.managerNotes || 'Mohon dirapikan sesuai standar VM'}"\n• Target SLA: Maksimal 1 Jam\n• Link Pengecekan & Input: https://dcalsuter2026.vercel.app/\n\nApakah sudah selesai? Harap input hasil pengerjaan via link di atas. Terima kasih!`
                       )!}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -670,27 +630,13 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Foto Hasil Perbaikan</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={psFileInputRef}
-                    onChange={(e) => handleFileChange(e.target.files?.[0], setResolutionPhotoUrl)}
-                    className="hidden"
+                  <PhotoPickerInput
+                    photoUrl={resolutionPhotoUrl}
+                    onPhotoChange={setResolutionPhotoUrl}
+                    label="Foto Hasil Perbaikan (Kamera / Galeri)"
+                    cameraTitle="Ambil Foto Hasil Perbaikan Display"
+                    accentColor="emerald"
                   />
-                  <button
-                    type="button"
-                    onClick={() => psFileInputRef.current?.click()}
-                    className="w-full py-1.5 px-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-slate-800 font-bold text-xs flex items-center justify-center gap-1"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                    <span>{resolutionPhotoUrl ? 'Ganti Foto' : 'Ambil / Upload Foto Selesai'}</span>
-                  </button>
-                  {resolutionPhotoUrl && (
-                    <div className="mt-1.5 aspect-video rounded overflow-hidden border border-emerald-300">
-                      <img src={resolutionPhotoUrl} alt="Foto Selesai" className="w-full h-full object-cover" />
-                    </div>
-                  )}
                 </div>
 
                 <div>
@@ -788,7 +734,7 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
           {currentDept.psList.map(ps => {
             const waUrl = getWhatsAppUrl(
               ps.phone,
-              `Halo Rekan PS ${ps.name}, saya Manager ${managerName}. Terkait display harian departemen [${currentDept.code}] ${currentDept.name}...`
+              `Halo Rekan PS *${ps.name}*, saya Manager *${managerName}*.\nTerkait pengecekan display harian departemen *[${currentDept.code}] ${currentDept.name}*.\n⏱️ Target SLA Pengerjaan: Maksimal 1 Jam.\n🔗 Link Pengecekan: https://dcalsuter2026.vercel.app/`
             );
 
             return ps.phone ? (

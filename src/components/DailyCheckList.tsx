@@ -364,7 +364,7 @@ export const DailyCheckList: React.FC<DailyCheckListProps> = ({
                         <span>{ps.name}</span>
                         {ps.phone && (
                           <a
-                            href={`https://wa.me/62${ps.phone.replace(/^0/, '')}`}
+                            href={`https://wa.me/62${ps.phone.replace(/^0/, '')}?text=${encodeURIComponent(`Halo Rekan PS *${ps.name}*, terkait display harian departemen *[${dept.code}] ${dept.name}*.\n⏱️ Target SLA Pengerjaan: Maksimal 1 Jam.\n🔗 Link Pengecekan: https://dcalsuter2026.vercel.app/`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-emerald-600 hover:text-emerald-700 ml-0.5"

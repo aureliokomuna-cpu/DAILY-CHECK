@@ -543,5 +543,96 @@ export const INITIAL_OBSERVATIONS: DailyObservation[] = [
     psNotes: 'Kabel dimasukkan ke cable duct di bawah meja kerja, rapi total.',
     createdAt: '2026-09-18T14:20:00.000Z',
     updatedAt: '2026-09-18T15:10:00.000Z'
+  },
+  {
+    id: 'obs-20260919-04',
+    date: '2026-09-19',
+    deptCode: 'BB',
+    deptName: 'Living Room',
+    zoneId: 'LIVING',
+    status: 'RESOLVED',
+    managerName: 'AGAM',
+    inspectionTime: '08:30',
+    managerNotes: 'Karpet rug bergelombang dan coffee table belum di-dusting.',
+    findingPhotoUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&auto=format&fit=crop&q=80',
+    vmStandardPhotoUrl: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&auto=format&fit=crop&q=80',
+    resolutionPhotoUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&auto=format&fit=crop&q=80',
+    checklist: [
+      { id: 'cleanliness', label: 'Kebersihan area display & bebas debu', passed: true },
+      { id: 'pop_pricetag', label: 'Kelengkapan & kerapian Price Tag / POP Promo', passed: true },
+      { id: 'vm_spacing', label: 'Layout & spacing produk sesuai VM Planogram', passed: true }
+    ],
+    assignedPsName: 'EDO YULIANTO',
+    resolvedByPsName: 'EDO YULIANTO',
+    executionTime: '08:55',
+    psNotes: 'Karpet ditarik kencang, coffee table sudah dilap microfiber dan di-waxing.',
+    createdAt: '2026-09-19T08:30:00.000Z',
+    updatedAt: '2026-09-19T08:55:00.000Z'
+  },
+  {
+    id: 'obs-20260919-05',
+    date: '2026-09-19',
+    deptCode: 'BL',
+    deptName: 'Lighting',
+    zoneId: 'COMMERCIAL',
+    status: 'RESOLVED',
+    managerName: 'ROVIE',
+    inspectionTime: '11:00',
+    managerNotes: 'Lampu gantung pendant mati 1 bohlam dan kabel terlihat menjuntai.',
+    findingPhotoUrl: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800&auto=format&fit=crop&q=80',
+    vmStandardPhotoUrl: 'https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?w=800&auto=format&fit=crop&q=80',
+    resolutionPhotoUrl: 'https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?w=800&auto=format&fit=crop&q=80',
+    checklist: [
+      { id: 'lighting', label: 'Pencahayaan spotlight tepat sasaran & berfungsi', passed: true },
+      { id: 'cleanliness', label: 'Kebersihan area display & bebas debu', passed: true }
+    ],
+    assignedPsName: 'FAJAR KURNIA',
+    resolvedByPsName: 'FAJAR KURNIA',
+    executionTime: '11:38',
+    psNotes: 'Bohlam LED diganti baru dan kabel dirapikan pakai klem transparan.',
+    createdAt: '2026-09-19T11:00:00.000Z',
+    updatedAt: '2026-09-19T11:38:00.000Z'
+  },
+  {
+    id: 'obs-20260919-06',
+    date: '2026-09-19',
+    deptCode: 'BE',
+    deptName: 'Mattress',
+    zoneId: 'SLEEPING',
+    status: 'STANDARD',
+    managerName: 'ROVIE',
+    inspectionTime: '10:30',
+    managerNotes: 'Display matras sangat rapi, bed skirt rata dan pillow protector bersih.',
+    vmStandardPhotoUrl: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&auto=format&fit=crop&q=80',
+    checklist: [
+      { id: 'cleanliness', label: 'Kebersihan area display & bebas debu', passed: true },
+      { id: 'pop_pricetag', label: 'Kelengkapan & kerapian Price Tag / POP Promo', passed: true }
+    ],
+    createdAt: '2026-09-19T10:30:00.000Z',
+    updatedAt: '2026-09-19T10:30:00.000Z'
+  },
+  {
+    id: 'obs-20260919-07',
+    date: '2026-09-19',
+    deptCode: 'BC',
+    deptName: 'Living Case Goods',
+    zoneId: 'LIVING',
+    status: 'RESOLVED',
+    managerName: 'MEY',
+    inspectionTime: '10:10',
+    managerNotes: 'Pintu lemari display tidak tertutup rapat dan ada sidik jari di kaca.',
+    findingPhotoUrl: 'https://images.unsplash.com/photo-1595428774223-ef52624120d2?w=800&auto=format&fit=crop&q=80',
+    vmStandardPhotoUrl: 'https://images.unsplash.com/photo-1595428774223-ef52624120d2?w=800&auto=format&fit=crop&q=80',
+    resolutionPhotoUrl: 'https://images.unsplash.com/photo-1595428774223-ef52624120d2?w=800&auto=format&fit=crop&q=80',
+    checklist: [
+      { id: 'cleanliness', label: 'Kebersihan area display & bebas debu', passed: true },
+      { id: 'sample_condition', label: 'Kondisi sample/display utuh & tidak cacat', passed: true }
+    ],
+    assignedPsName: 'DEDI HERMAWAN',
+    resolvedByPsName: 'DEDI HERMAWAN',
+    executionTime: '11:02',
+    psNotes: 'Engsel pintu disetel ulang rata, kaca dibersihkan dengan glass cleaner.',
+    createdAt: '2026-09-19T10:10:00.000Z',
+    updatedAt: '2026-09-19T11:02:00.000Z'
   }
 ];

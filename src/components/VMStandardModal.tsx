@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Upload, Palette, Plus, Trash2, CheckCircle2, Sparkles } from 'lucide-react';
 import { Department, VMStandard } from '../types';
+import { PhotoPickerInput } from './PhotoPickerInput';
 
 interface VMStandardModalProps {
   isOpen: boolean;
@@ -107,31 +108,16 @@ export const VMStandardModal: React.FC<VMStandardModalProps> = ({
         <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">
           {/* Photo Display Standard */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              FOTO DISPLAY STANDAR RESMI VM
-            </label>
-            <div className="relative rounded-xl overflow-hidden border border-slate-300 group bg-slate-50">
-              <img
-                src={standardPhotoUrl}
-                alt="Standar VM"
-                className="w-full h-48 sm:h-56 object-cover"
-              />
-              <div className="p-3 bg-white border-t border-slate-200 flex items-center justify-between gap-2">
-                <label className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl cursor-pointer transition-colors">
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>Unggah Foto Standar Baru</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </label>
-                <span className="text-[11px] text-slate-500">
-                  Foto ini jadi acuan audit harian Manager & PS
-                </span>
-              </div>
-            </div>
+            <PhotoPickerInput
+              photoUrl={standardPhotoUrl}
+              onPhotoChange={setStandardPhotoUrl}
+              label="FOTO DISPLAY STANDAR RESMI VM"
+              cameraTitle="Ambil Foto Standar VM"
+              accentColor="indigo"
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              Foto ini jadi acuan audit harian Manager & PS
+            </p>
           </div>
 
           {/* SOP Rules List */}
