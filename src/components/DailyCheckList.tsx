@@ -67,12 +67,18 @@ export const DailyCheckList: React.FC<DailyCheckListProps> = ({
       }
     }
 
-    // Status filter
-    const obs = observations.find(o => o.deptCode === dept.code && o.date === currentDate);
-    if (statusFilter === 'UNCHECKED' && obs) return false;
-    if (statusFilter === 'STANDARD' && obs?.status !== 'STANDARD') return false;
-    if (statusFilter === 'NON_STANDARD' && obs?.status !== 'NON_STANDARD') return false;
-    if (statusFilter === 'RESOLVED' && obs?.status !== 'RESOLVED') return false;
+    // Status filter (supporting multiple findings)
+    const deptObs = observations.filter(o => o.deptCode === dept.code && o.date === currentDate);
+    const hasPending = deptObs.some(o => o.status === 'NON_STANDARD');
+    const hasInProgress = deptObs.some(o => o.status === 'IN_PROGRESS');
+    const hasResolved = deptObs.some(o => o.status === 'RESOLVED');
+    const hasStd = deptObs.some(o => o.status === 'STANDARD');
+    const isChecked = deptObs.length > 0;
+
+    if (statusFilter === 'UNCHECKED' && isChecked) return false;
+    if (statusFilter === 'STANDARD' && (!hasStd || hasPending || hasInProgress)) return false;
+    if (statusFilter === 'NON_STANDARD' && !hasPending && !hasInProgress) return false;
+    if (statusFilter === 'RESOLVED' && (!hasResolved || hasPending)) return false;
 
     return true;
   });
@@ -148,14 +154,20 @@ export const DailyCheckList: React.FC<DailyCheckListProps> = ({
       {/* Department Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredDepartments.map((dept) => {
-          const obs = observations.find(o => o.deptCode === dept.code && o.date === currentDate);
+          const deptObsList = observations.filter(o => o.deptCode === dept.code && o.date === currentDate);
+          const pendingObs = deptObsList.find(o => o.status === 'NON_STANDARD');
+          const inProgressObs = deptObsList.find(o => o.status === 'IN_PROGRESS');
+          const resolvedObs = deptObsList.find(o => o.status === 'RESOLVED');
+          const standardObs = deptObsList.find(o => o.status === 'STANDARD');
+          const obs = pendingObs || inProgressObs || resolvedObs || standardObs;
+
+          const isChecked = deptObsList.length > 0;
+          const isNonStandard = !!pendingObs;
+          const isInProgress = !pendingObs && !!inProgressObs;
+          const isResolved = !pendingObs && !inProgressObs && !!resolvedObs;
+          const isStandard = !pendingObs && !inProgressObs && !resolvedObs && !!standardObs;
+
           const vmStd = vmStandards[dept.code];
-
-          const isChecked = !!obs;
-          const isStandard = obs?.status === 'STANDARD';
-          const isNonStandard = obs?.status === 'NON_STANDARD';
-          const isResolved = obs?.status === 'RESOLVED';
-
           const currentZone = ZONES.find(z => z.id === dept.zone);
 
           return (
@@ -164,6 +176,8 @@ export const DailyCheckList: React.FC<DailyCheckListProps> = ({
               className={`bg-white rounded-2xl border transition-all duration-200 shadow-xs hover:shadow-md flex flex-col justify-between overflow-hidden ${
                 isNonStandard
                   ? 'border-rose-300 ring-2 ring-rose-50'
+                  : isInProgress
+                  ? 'border-amber-300 ring-2 ring-amber-50'
                   : isResolved
                   ? 'border-emerald-300 ring-2 ring-emerald-50'
                   : isChecked
@@ -181,6 +195,11 @@ export const DailyCheckList: React.FC<DailyCheckListProps> = ({
                     <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${currentZone?.bgColor} ${currentZone?.color} ${currentZone?.borderColor}`}>
                       {dept.zone}
                     </span>
+                    {deptObsList.length > 1 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700">
+                        {deptObsList.length} Catatan
+                      </span>
+                    )}
                   </div>
 
                   {/* Status Badge */}
@@ -189,6 +208,8 @@ export const DailyCheckList: React.FC<DailyCheckListProps> = ({
                       ? 'bg-slate-100 text-slate-600 border-slate-200'
                       : isResolved
                       ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      : isInProgress
+                      ? 'bg-amber-100 text-amber-800 border-amber-300'
                       : isNonStandard
                       ? 'bg-rose-100 text-rose-800 border-rose-300 animate-pulse'
                       : 'bg-indigo-100 text-indigo-800 border-indigo-300'
@@ -201,12 +222,17 @@ export const DailyCheckList: React.FC<DailyCheckListProps> = ({
                     ) : isResolved ? (
                       <>
                         <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        <span>Selesai (Resolved)</span>
+                        <span>Sudah di Progres</span>
+                      </>
+                    ) : isInProgress ? (
+                      <>
+                        <Clock className="w-3 h-3 text-amber-600" />
+                        <span>Sedang Dikerjakan</span>
                       </>
                     ) : isNonStandard ? (
                       <>
                         <AlertTriangle className="w-3 h-3 text-rose-600" />
-                        <span>Temuan Non-Standar</span>
+                        <span>Belum di Progres</span>
                       </>
                     ) : (
                       <>
@@ -403,7 +429,7 @@ export const DailyCheckList: React.FC<DailyCheckListProps> = ({
 
                 <div className="flex items-center gap-1.5">
                   {/* Action for PS (if non-standard finding exists) */}
-                  {isNonStandard && (
+                  {isNonStandard && obs && (
                     <button
                       type="button"
                       onClick={() => onOpenPSExecution(dept, obs)}

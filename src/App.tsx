@@ -11,7 +11,8 @@ import {
   DailyObservation, 
   VMStandard, 
   ZoneId, 
-  NotificationItem 
+  NotificationItem,
+  InspectionStatus 
 } from './types';
 
 import { DEPARTMENTS } from './data/masterData';
@@ -69,37 +70,72 @@ export default function App() {
     saveNotifications(notifications);
   }, [notifications]);
 
-  // 1. Manager Save Observation (Single Page Direct)
-  const handleSaveObservation = (obsData: Omit<DailyObservation, 'id' | 'createdAt' | 'updatedAt'>) => {
+  // 1. Manager Save Observation (Single Page Direct & Multiple Findings Support)
+  const handleSaveObservation = (obsData: Omit<DailyObservation, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
     const nowIso = new Date().toISOString();
-    const existingIndex = observations.findIndex(
-      o => o.deptCode === obsData.deptCode && o.date === obsData.date
-    );
-
     let updatedList: DailyObservation[];
     let targetObsId: string;
 
-    if (existingIndex >= 0) {
-      targetObsId = observations[existingIndex].id;
-      const updatedItem: DailyObservation = {
-        ...observations[existingIndex],
-        ...obsData,
-        status: (observations[existingIndex].status === 'RESOLVED' && obsData.status === 'NON_STANDARD')
-          ? 'RESOLVED'
-          : obsData.status,
-        updatedAt: nowIso
-      };
-      updatedList = [...observations];
-      updatedList[existingIndex] = updatedItem;
+    if (obsData.id) {
+      // Update specific existing finding/observation
+      const existingIndex = observations.findIndex(o => o.id === obsData.id);
+      if (existingIndex >= 0) {
+        targetObsId = obsData.id;
+        const updatedItem: DailyObservation = {
+          ...observations[existingIndex],
+          ...obsData,
+          id: obsData.id,
+          updatedAt: nowIso
+        };
+        updatedList = [...observations];
+        updatedList[existingIndex] = updatedItem;
+      } else {
+        targetObsId = obsData.id;
+        const newItem: DailyObservation = {
+          ...obsData,
+          id: targetObsId,
+          createdAt: nowIso,
+          updatedAt: nowIso
+        };
+        updatedList = [newItem, ...observations];
+      }
     } else {
-      targetObsId = `obs-${obsData.date.replace(/-/g, '')}-${Math.random().toString(36).substring(2, 7)}`;
-      const newItem: DailyObservation = {
-        ...obsData,
-        id: targetObsId,
-        createdAt: nowIso,
-        updatedAt: nowIso
-      };
-      updatedList = [newItem, ...observations];
+      // New Observation without explicit ID:
+      // If STANDARD, check if there is an existing STANDARD observation to update
+      if (obsData.status === 'STANDARD') {
+        const existingStdIndex = observations.findIndex(
+          o => o.deptCode === obsData.deptCode && o.date === obsData.date && o.status === 'STANDARD'
+        );
+        if (existingStdIndex >= 0) {
+          targetObsId = observations[existingStdIndex].id;
+          const updatedItem: DailyObservation = {
+            ...observations[existingStdIndex],
+            ...obsData,
+            updatedAt: nowIso
+          };
+          updatedList = [...observations];
+          updatedList[existingStdIndex] = updatedItem;
+        } else {
+          targetObsId = `obs-${obsData.date.replace(/-/g, '')}-${Math.random().toString(36).substring(2, 7)}`;
+          const newItem: DailyObservation = {
+            ...obsData,
+            id: targetObsId,
+            createdAt: nowIso,
+            updatedAt: nowIso
+          };
+          updatedList = [newItem, ...observations];
+        }
+      } else {
+        // NON_STANDARD finding: ALWAYS CREATE A NEW UNIQUE FINDING to support multiple findings!
+        targetObsId = `obs-${obsData.date.replace(/-/g, '')}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+        const newItem: DailyObservation = {
+          ...obsData,
+          id: targetObsId,
+          createdAt: nowIso,
+          updatedAt: nowIso
+        };
+        updatedList = [newItem, ...observations];
+      }
     }
 
     setObservations(updatedList);
@@ -129,24 +165,40 @@ export default function App() {
     setVmStandards(updated);
   };
 
-  // 3. PS Save Execution & Resolution
+  // 3. PS Save Execution & Resolution (With obsId & Status Support)
   const handleSavePSExecutionDirect = (data: {
+    obsId?: string;
     deptCode: string;
     resolutionPhotoUrl: string;
     psNotes: string;
     resolvedByPsName: string;
     executionTime: string;
+    status?: InspectionStatus;
   }) => {
     const nowIso = new Date().toISOString();
-    const existingIndex = observations.findIndex(
-      o => o.deptCode === data.deptCode && o.date === currentDate
-    );
-
     let updatedList: DailyObservation[];
+
+    // 1. Prioritize finding by exact obsId
+    let existingIndex = data.obsId ? observations.findIndex(o => o.id === data.obsId) : -1;
+
+    // 2. If not found by obsId, find the first pending NON_STANDARD finding for this dept and date
+    if (existingIndex < 0) {
+      existingIndex = observations.findIndex(
+        o => o.deptCode === data.deptCode && o.date === currentDate && o.status === 'NON_STANDARD'
+      );
+    }
+
+    // 3. Fallback to any observation for this dept and date
+    if (existingIndex < 0) {
+      existingIndex = observations.findIndex(
+        o => o.deptCode === data.deptCode && o.date === currentDate
+      );
+    }
+
     if (existingIndex >= 0) {
       const updatedItem: DailyObservation = {
         ...observations[existingIndex],
-        status: 'RESOLVED' as const,
+        status: (data.status || 'RESOLVED') as InspectionStatus,
         resolutionPhotoUrl: data.resolutionPhotoUrl,
         psNotes: data.psNotes,
         resolvedByPsName: data.resolvedByPsName,
@@ -163,7 +215,7 @@ export default function App() {
         deptCode: data.deptCode,
         deptName: dept?.name || data.deptCode,
         zoneId: dept?.zone || 'LIVING',
-        status: 'RESOLVED',
+        status: (data.status || 'RESOLVED') as InspectionStatus,
         managerName: 'MANAGER',
         inspectionTime: data.executionTime,
         checklist: [],

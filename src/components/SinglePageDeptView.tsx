@@ -7,11 +7,17 @@ import {
   Save, 
   Check, 
   MessageCircle, 
-  Phone
+  Phone,
+  Clock,
+  Plus,
+  Filter,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import { Department, DailyObservation, VMStandard, ZoneId, InspectionStatus } from '../types';
 import { ZONES, DEPARTMENTS, MANAGERS } from '../data/masterData';
 import { PhotoPickerInput } from './PhotoPickerInput';
+import { FindingItemCard } from './FindingItemCard';
 
 interface SinglePageDeptViewProps {
   currentDate: string;
@@ -21,19 +27,21 @@ interface SinglePageDeptViewProps {
   onSelectDeptCode: (code: string) => void;
   observations: DailyObservation[];
   vmStandards: Record<string, VMStandard>;
-  onSaveObservation: (obs: Omit<DailyObservation, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onSaveObservation: (obs: Omit<DailyObservation, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => void;
   onSaveVMStandard: (standard: VMStandard) => void;
   onSavePSExecution: (data: {
+    obsId?: string;
     deptCode: string;
     resolutionPhotoUrl: string;
     psNotes: string;
     resolvedByPsName: string;
     executionTime: string;
+    status?: InspectionStatus;
   }) => void;
   onOpenPhotoVerification: (dept: Department, obs: DailyObservation) => void;
 }
 
-// WhatsApp Link Generator Utility
+// WhatsApp Link Generator Utility with SLA and Vercel Link
 const getWhatsAppUrl = (phone?: string, text?: string) => {
   if (!phone) return null;
   const cleanPhone = phone.replace(/\D/g, '');
@@ -60,57 +68,45 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
   onOpenPhotoVerification
 }) => {
   const currentDept = DEPARTMENTS.find(d => d.code === selectedDeptCode) || DEPARTMENTS.find(d => d.zone === selectedZone) || DEPARTMENTS[0];
-  const currentObservation = observations.find(o => o.deptCode === currentDept.code && o.date === currentDate);
   const currentVmStandard = vmStandards[currentDept.code];
   const zoneDepts = DEPARTMENTS.filter(d => d.zone === selectedZone);
 
-  // Manager State
-  const [managerName, setManagerName] = useState<string>(currentObservation?.managerName || MANAGERS[0]);
-  const [managerStatus, setManagerStatus] = useState<InspectionStatus>(currentObservation?.status || 'STANDARD');
-  const [managerNotes, setManagerNotes] = useState<string>(currentObservation?.managerNotes || '');
-  const [findingPhotoUrl, setFindingPhotoUrl] = useState<string>(currentObservation?.findingPhotoUrl || '');
-  const [assignedPs, setAssignedPs] = useState<string>(
-    currentObservation?.assignedPsName || currentDept.psList[0]?.name || ''
+  // ALL FINDINGS for current department:
+  // Today's observations plus any pending unresolved observations from past dates
+  const deptObservations = observations.filter(o => o.deptCode === currentDept.code);
+  const todayDeptObs = deptObservations.filter(o => o.date === currentDate);
+  
+  // Real findings (non-standard, in progress, resolved, or has photos/notes)
+  const allDeptFindings = deptObservations.filter(
+    o => o.status !== 'STANDARD' || !!o.findingPhotoUrl || !!o.managerNotes
   );
+
+  // Status counts for this department
+  const pendingFindings = allDeptFindings.filter(o => o.status === 'NON_STANDARD');
+  const inProgressFindings = allDeptFindings.filter(o => o.status === 'IN_PROGRESS');
+  const resolvedFindings = allDeptFindings.filter(o => o.status === 'RESOLVED');
+
+  // Filter state for PS findings list
+  const [psFilter, setPsFilter] = useState<'ALL' | 'PENDING' | 'RESOLVED'>('ALL');
+
+  // Manager Form State
+  const [managerName, setManagerName] = useState<string>(MANAGERS[0]);
+  const [managerStatus, setManagerStatus] = useState<InspectionStatus>('NON_STANDARD');
+  const [managerNotes, setManagerNotes] = useState<string>('');
+  const [findingPhotoUrl, setFindingPhotoUrl] = useState<string>('');
+  const [assignedPs, setAssignedPs] = useState<string>(currentDept.psList[0]?.name || '');
+  const [activeEditingObsId, setActiveEditingObsId] = useState<string | null>(null);
 
   // VM Edit State
   const [isEditingVM, setIsEditingVM] = useState<boolean>(false);
   const [vmPhotoUrl, setVmPhotoUrl] = useState<string>(currentVmStandard?.standardPhotoUrl || '');
   const [vmRulesText, setVmRulesText] = useState<string>(currentVmStandard?.rules.join('\n') || '');
 
-  // PS State
-  const [isEditingPS, setIsEditingPS] = useState<boolean>(false);
-  const [resolutionPhotoUrl, setResolutionPhotoUrl] = useState<string>(currentObservation?.resolutionPhotoUrl || '');
-  const [psNotes, setPsNotes] = useState<string>(currentObservation?.psNotes || '');
-  const [psExecutorName, setPsExecutorName] = useState<string>(
-    currentObservation?.resolvedByPsName || currentDept.psList[0]?.name || ''
-  );
-
   const [savedAlert, setSavedAlert] = useState<string | null>(null);
 
+  // Reset/sync form when department or date changes
   useEffect(() => {
-    const obs = observations.find(o => o.deptCode === currentDept.code && o.date === currentDate);
     const vm = vmStandards[currentDept.code];
-
-    if (obs) {
-      setManagerName(obs.managerName || MANAGERS[0]);
-      setManagerStatus(obs.status);
-      setManagerNotes(obs.managerNotes || '');
-      setFindingPhotoUrl(obs.findingPhotoUrl || '');
-      setAssignedPs(obs.assignedPsName || currentDept.psList[0]?.name || '');
-      setResolutionPhotoUrl(obs.resolutionPhotoUrl || '');
-      setPsNotes(obs.psNotes || '');
-      setPsExecutorName(obs.resolvedByPsName || currentDept.psList[0]?.name || '');
-    } else {
-      setManagerStatus('STANDARD');
-      setManagerNotes('');
-      setFindingPhotoUrl('');
-      setAssignedPs(currentDept.psList[0]?.name || '');
-      setResolutionPhotoUrl('');
-      setPsNotes('');
-      setPsExecutorName(currentDept.psList[0]?.name || '');
-    }
-
     if (vm) {
       setVmPhotoUrl(vm.standardPhotoUrl || '');
       setVmRulesText(vm.rules.join('\n'));
@@ -119,43 +115,19 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
       setVmRulesText('');
     }
 
+    setAssignedPs(currentDept.psList[0]?.name || '');
+    setFindingPhotoUrl('');
+    setManagerNotes('');
+    setActiveEditingObsId(null);
     setIsEditingVM(false);
-    setIsEditingPS(false);
     setSavedAlert(null);
-  }, [currentDept.code, currentDate, observations, vmStandards]);
+  }, [currentDept.code, currentDate, vmStandards]);
 
   // Find assigned PS object with phone number
   const assignedPsObj = currentDept.psList.find(p => p.name === assignedPs);
   const primaryPsWithPhone = currentDept.psList.find(p => !!p.phone) || currentDept.psList[0];
 
-  const handleSaveManager = (e: React.FormEvent) => {
-    e.preventDefault();
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-
-    onSaveObservation({
-      date: currentDate,
-      deptCode: currentDept.code,
-      deptName: currentDept.name,
-      zoneId: currentDept.zone,
-      status: managerStatus,
-      managerName,
-      inspectionTime: currentObservation?.inspectionTime || timeStr,
-      managerNotes: managerNotes.trim(),
-      findingPhotoUrl: managerStatus === 'NON_STANDARD' ? (findingPhotoUrl || undefined) : undefined,
-      checklist: [
-        { id: 'cleanliness', label: 'Kebersihan area display', passed: managerStatus !== 'NON_STANDARD' },
-        { id: 'pop_pricetag', label: 'Price tag & POP promo', passed: managerStatus !== 'NON_STANDARD' },
-        { id: 'vm_symmetry', label: 'Display simetris & rapi', passed: managerStatus !== 'NON_STANDARD' }
-      ],
-      vmStandardPhotoUrl: currentVmStandard?.standardPhotoUrl,
-      assignedPsName: managerStatus === 'NON_STANDARD' ? assignedPs : undefined
-    });
-
-    setSavedAlert('Pemeriksaan Manager tersimpan!');
-    setTimeout(() => setSavedAlert(null), 2000);
-  };
-
+  // Save Standard SOP (VM)
   const handleSaveVM = (e: React.FormEvent) => {
     e.preventDefault();
     if (!vmPhotoUrl) {
@@ -175,36 +147,84 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
 
     setIsEditingVM(false);
     setSavedAlert('Standar VM berhasil diperbarui!');
-    setTimeout(() => setSavedAlert(null), 2000);
+    setTimeout(() => setSavedAlert(null), 2500);
   };
 
-  const handleSavePS = (e: React.FormEvent) => {
+  // Manager: Simpan Pemeriksaan (Temuan Baru atau Update)
+  const handleSaveManager = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resolutionPhotoUrl) {
-      alert('Mohon lampirkan foto hasil perbaikan');
-      return;
-    }
     const now = new Date();
     const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-    onSavePSExecution({
+    if (managerStatus === 'NON_STANDARD' && !managerNotes.trim() && !findingPhotoUrl) {
+      alert('Mohon masukkan catatan temuan atau foto display yang kurang rapi.');
+      return;
+    }
+
+    onSaveObservation({
+      id: activeEditingObsId || undefined,
+      date: currentDate,
       deptCode: currentDept.code,
-      resolutionPhotoUrl,
-      psNotes: psNotes.trim() || 'Display telah dirapikan sesuai standar.',
-      resolvedByPsName: psExecutorName || 'Team PS',
-      executionTime: timeStr
+      deptName: currentDept.name,
+      zoneId: currentDept.zone,
+      status: managerStatus,
+      managerName,
+      inspectionTime: timeStr,
+      managerNotes: managerNotes.trim(),
+      findingPhotoUrl: managerStatus === 'NON_STANDARD' ? (findingPhotoUrl || undefined) : undefined,
+      checklist: [
+        { id: 'cleanliness', label: 'Kebersihan area display', passed: managerStatus !== 'NON_STANDARD' },
+        { id: 'pop_pricetag', label: 'Price tag & POP promo', passed: managerStatus !== 'NON_STANDARD' },
+        { id: 'vm_symmetry', label: 'Display simetris & rapi', passed: managerStatus !== 'NON_STANDARD' }
+      ],
+      vmStandardPhotoUrl: currentVmStandard?.standardPhotoUrl,
+      assignedPsName: managerStatus === 'NON_STANDARD' ? assignedPs : undefined
     });
 
-    setIsEditingPS(false);
-    setSavedAlert('Penyelesaian PS tersimpan (RESOLVED)!');
-    setTimeout(() => setSavedAlert(null), 2000);
+    setSavedAlert(
+      activeEditingObsId 
+        ? 'Temuan berhasil diperbarui!' 
+        : managerStatus === 'NON_STANDARD'
+        ? `Temuan baru tersimpan! Ditugaskan ke ${assignedPs}.`
+        : 'Pemeriksaan Standar OK tersimpan!'
+    );
+
+    // Reset manager form so they can easily add another finding!
+    setFindingPhotoUrl('');
+    setManagerNotes('');
+    setActiveEditingObsId(null);
+    setTimeout(() => setSavedAlert(null), 3000);
   };
 
+  // Switch to editing an existing finding in Card 2
+  const handleEditFinding = (obs: DailyObservation) => {
+    setActiveEditingObsId(obs.id);
+    setManagerName(obs.managerName || MANAGERS[0]);
+    setManagerStatus('NON_STANDARD');
+    setManagerNotes(obs.managerNotes || '');
+    setFindingPhotoUrl(obs.findingPhotoUrl || '');
+    setAssignedPs(obs.assignedPsName || currentDept.psList[0]?.name || '');
+  };
+
+  // Cancel editing existing finding
+  const handleCancelEdit = () => {
+    setActiveEditingObsId(null);
+    setFindingPhotoUrl('');
+    setManagerNotes('');
+  };
+
+  // Filtered findings for PS view
+  const displayFindings = allDeptFindings.filter(finding => {
+    if (psFilter === 'PENDING') return finding.status === 'NON_STANDARD' || finding.status === 'IN_PROGRESS';
+    if (psFilter === 'RESOLVED') return finding.status === 'RESOLVED';
+    return true;
+  });
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 animate-fadeIn">
       
       {/* 1. PILIH ZONA */}
-      <div className="bg-white p-2 rounded-xl border border-slate-200">
+      <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs">
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           <span className="text-[11px] font-black text-slate-400 uppercase tracking-wide mr-1 shrink-0">
             ZONA:
@@ -234,17 +254,18 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
       </div>
 
       {/* 2. PILIH DEPARTEMEN */}
-      <div className="bg-white p-2 rounded-xl border border-slate-200">
+      <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs">
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           <span className="text-[11px] font-black text-slate-400 uppercase tracking-wide mr-1 shrink-0">
             DEPT:
           </span>
           {zoneDepts.map(dept => {
             const isSelected = selectedDeptCode === dept.code;
-            const obs = observations.find(o => o.deptCode === dept.code && o.date === currentDate);
-            const isNonStd = obs?.status === 'NON_STANDARD';
-            const isResolved = obs?.status === 'RESOLVED';
-            const isStd = obs?.status === 'STANDARD';
+            const deptObs = observations.filter(o => o.deptCode === dept.code && o.date === currentDate);
+            const hasPending = deptObs.some(o => o.status === 'NON_STANDARD');
+            const hasInProgress = deptObs.some(o => o.status === 'IN_PROGRESS');
+            const hasResolved = deptObs.some(o => o.status === 'RESOLVED');
+            const hasStd = deptObs.some(o => o.status === 'STANDARD');
 
             return (
               <button
@@ -254,11 +275,13 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all flex items-center gap-1.5 border ${
                   isSelected
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
-                    : isNonStd
+                    : hasPending
                     ? 'bg-rose-50 border-rose-300 text-rose-800'
-                    : isResolved
+                    : hasInProgress
+                    ? 'bg-amber-50 border-amber-300 text-amber-800'
+                    : hasResolved
                     ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                    : isStd
+                    : hasStd
                     ? 'bg-slate-100 border-indigo-200 text-slate-800'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                 }`}
@@ -269,12 +292,14 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
                   {dept.code}
                 </span>
                 <span>{dept.name}</span>
-                {isResolved ? (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                ) : isNonStd ? (
-                  <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 animate-ping" />
-                ) : isStd ? (
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+                {hasPending ? (
+                  <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 animate-ping" title="Ada temuan belum selesai" />
+                ) : hasInProgress ? (
+                  <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" title="Sedang dikerjakan" />
+                ) : hasResolved ? (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Sudah di progres" />
+                ) : hasStd ? (
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" title="Standar OK" />
                 ) : null}
               </button>
             );
@@ -284,76 +309,80 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
 
       {/* Alert toast notification */}
       {savedAlert && (
-        <div className="py-2 px-3 bg-slate-900 text-white text-xs font-semibold rounded-lg flex items-center gap-2 shadow-sm animate-fade-in">
+        <div className="py-2.5 px-3.5 bg-slate-900 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-md animate-fadeIn">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{savedAlert}</span>
         </div>
       )}
 
-      {/* 3. HEADER DEPARTEMEN AKTIF */}
-      <div className="bg-slate-900 text-white rounded-xl px-4 py-2.5 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-black px-2 py-0.5 rounded bg-indigo-500 text-white">
+      {/* 3. HEADER DEPARTEMEN AKTIF & SUMMARY TEMUAN */}
+      <div className="bg-slate-900 text-white rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className="text-xs font-black px-2.5 py-0.5 rounded-md bg-indigo-500 text-white">
             {currentDept.code}
           </span>
-          <h2 className="text-sm sm:text-base font-bold text-white">
+          <h2 className="text-sm sm:text-base font-extrabold text-white">
             {currentDept.name}
           </h2>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-            currentObservation?.status === 'RESOLVED'
-              ? 'bg-emerald-500 text-white'
-              : currentObservation?.status === 'NON_STANDARD'
-              ? 'bg-rose-500 text-white'
-              : currentObservation?.status === 'STANDARD'
-              ? 'bg-indigo-500 text-white'
-              : 'bg-slate-800 text-slate-300'
-          }`}>
-            {currentObservation?.status === 'RESOLVED'
-              ? 'SELESAI'
-              : currentObservation?.status === 'NON_STANDARD'
-              ? 'TEMUAN'
-              : currentObservation?.status === 'STANDARD'
-              ? 'OK'
-              : 'BELUM'}
-          </span>
+
+          {/* STATUS LABEL TEMUAN */}
+          {pendingFindings.length > 0 ? (
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-500 text-white flex items-center gap-1 animate-pulse">
+              <AlertTriangle className="w-3 h-3" />
+              <span>{pendingFindings.length} Belum di Progres</span>
+            </span>
+          ) : resolvedFindings.length > 0 ? (
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500 text-white flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>{resolvedFindings.length} Sudah di Progres</span>
+            </span>
+          ) : (
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-700 text-slate-200">
+              Standar OK (0 Temuan)
+            </span>
+          )}
+
+          {resolvedFindings.length > 0 && pendingFindings.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+              ✓ {resolvedFindings.length} Selesai
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Quick WA Button in header if primary PS has phone */}
+        <div className="flex items-center gap-2 flex-wrap">
           {primaryPsWithPhone?.phone && (
             <a
               href={getWhatsAppUrl(
                 primaryPsWithPhone.phone,
-                `Halo Rekan PS *${primaryPsWithPhone.name}*, terkait display harian departemen *[${currentDept.code}] ${currentDept.name}* (Manager: ${managerName}).\n⏱️ Target SLA Pengerjaan: Maksimal 1 Jam.\n🔗 Link Pengecekan: https://dcalsuter2026.vercel.app/\nMohon bantuannya ya.`
+                `Halo Rekan PS *${primaryPsWithPhone.name}*, terkait display departemen *[${currentDept.code}] ${currentDept.name}*:\n⏱️ Target SLA Pengerjaan: Maksimal 1 Jam.\n🔗 Link Pengecekan: https://dcalsuter2026.vercel.app/\nMohon bantuannya ya.`
               )!}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0 shadow-2xs"
-              title={`Chat WhatsApp ke ${primaryPsWithPhone.name} (${primaryPsWithPhone.phone})`}
+              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0 shadow-2xs"
             >
               <MessageCircle className="w-3.5 h-3.5" />
-              <span>WA {primaryPsWithPhone.name.split(' ')[0]}</span>
+              <span>WA PS ({primaryPsWithPhone.name.split(' ')[0]})</span>
             </a>
           )}
 
-          {currentObservation && (
+          {allDeptFindings.length > 0 && (
             <button
               type="button"
-              onClick={() => onOpenPhotoVerification(currentDept, currentObservation)}
-              className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0"
+              onClick={() => onOpenPhotoVerification(currentDept, allDeptFindings[0])}
+              className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Bandingkan Foto</span>
+              <span>Bandingkan Foto</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* 4. TIGA KARTU: STANDAR • TEMUAN • PENYELESAIAN */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {/* 4. TIGA KARTU: 1. STANDAR (VM) • 2. TEMUAN (MANAGER) • 3. PENYELESAIAN (PS) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         
-        {/* KARTU 1: STANDAR (VM) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col justify-between space-y-3">
+        {/* KARTU 1: STANDAR (VM) - 4 Kolom di Desktop */}
+        <div className="lg:col-span-4 bg-white rounded-xl border border-slate-200 p-3 flex flex-col justify-between space-y-3 shadow-2xs">
           <div>
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
@@ -383,8 +412,8 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
                     type="url"
                     value={vmPhotoUrl}
                     onChange={(e) => setVmPhotoUrl(e.target.value)}
-                    placeholder="Atau masukkan URL foto https://..."
-                    className="w-full text-xs p-1.5 rounded-lg border border-slate-200 mt-2 bg-slate-50"
+                    placeholder="Atau URL foto https://..."
+                    className="w-full text-xs p-1.5 rounded-lg border border-slate-200 mt-1.5 bg-slate-50"
                   />
                 </div>
 
@@ -424,7 +453,7 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
                 </div>
 
                 <div className="bg-slate-50 p-2 rounded-lg text-xs text-slate-700 border border-slate-100">
-                  <p className="font-semibold text-slate-900 mb-0.5 text-[11px]">Ketentuan:</p>
+                  <p className="font-semibold text-slate-900 mb-0.5 text-[11px]">Ketentuan Standar:</p>
                   <p className="text-[11px] text-slate-600">
                     {currentVmStandard?.rules && currentVmStandard.rules.length > 0 
                       ? currentVmStandard.rules.join(', ')
@@ -441,31 +470,44 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
           </div>
         </div>
 
-        {/* KARTU 2: TEMUAN (MANAGER) */}
-        <div className={`bg-white rounded-xl border p-3 flex flex-col justify-between space-y-3 ${
-          managerStatus === 'NON_STANDARD' ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200'
-        }`}>
+        {/* KARTU 2: PEMERIKSAAN (MANAGER) - 4 Kolom di Desktop */}
+        <div className="lg:col-span-4 bg-white rounded-xl border border-slate-200 p-3 flex flex-col justify-between space-y-3 shadow-2xs">
           <div>
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                 <span className="w-4 h-4 rounded bg-rose-600 text-white text-[10px] flex items-center justify-center font-black">2</span>
-                TEMUAN (MANAGER)
+                PEMERIKSAAN (MANAGER)
               </span>
-              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                managerStatus === 'NON_STANDARD' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
-              }`}>
-                {managerStatus === 'NON_STANDARD' ? 'Ada Temuan' : 'Standar OK'}
-              </span>
+
+              {allDeptFindings.length > 0 && (
+                <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                  {allDeptFindings.length} Temuan Aktif
+                </span>
+              )}
             </div>
 
+            {/* Banner info jika sedang edit temuan tertentu */}
+            {activeEditingObsId ? (
+              <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 flex items-center justify-between text-xs">
+                <span className="font-bold">Mode Edit Temuan</span>
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="text-xs font-bold text-amber-700 underline"
+                >
+                  Batal / Tambah Baru
+                </button>
+              </div>
+            ) : null}
+
             <form onSubmit={handleSaveManager} className="mt-2.5 space-y-2.5">
-              {/* Nama Manager */}
+              {/* Pilih Manager */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">Pilih Manager</label>
+                <label className="block text-[11px] font-bold text-slate-600 mb-0.5">Manager yang Memeriksa</label>
                 <select
                   value={managerName}
                   onChange={(e) => setManagerName(e.target.value)}
-                  className="w-full text-xs font-bold p-1.5 rounded-lg border border-slate-200 bg-white"
+                  className="w-full text-xs p-1.5 rounded-lg border border-slate-300 bg-white font-semibold"
                 >
                   {MANAGERS.map(m => (
                     <option key={m} value={m}>{m}</option>
@@ -473,16 +515,19 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
                 </select>
               </div>
 
-              {/* Toggle Kondisi */}
+              {/* Toggle Kondisi Display */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">Kondisi Display</label>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Hasil Observasi Display</label>
                 <div className="grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
-                    onClick={() => setManagerStatus('STANDARD')}
+                    onClick={() => {
+                      setManagerStatus('STANDARD');
+                      setActiveEditingObsId(null);
+                    }}
                     className={`py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-all ${
                       managerStatus === 'STANDARD'
-                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
@@ -495,7 +540,7 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
                     onClick={() => setManagerStatus('NON_STANDARD')}
                     className={`py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-all ${
                       managerStatus === 'NON_STANDARD'
-                        ? 'bg-rose-600 text-white border-rose-600'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
@@ -505,9 +550,9 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
                 </div>
               </div>
 
-              {/* Detail jika Ada Temuan */}
+              {/* Form Input Temuan Non-Standar */}
               {managerStatus === 'NON_STANDARD' && (
-                <div className="space-y-2.5 p-2.5 bg-rose-50 rounded-xl border border-rose-200 text-xs">
+                <div className="space-y-2 p-2 bg-rose-50/70 rounded-xl border border-rose-200 text-xs">
                   <div>
                     <PhotoPickerInput
                       photoUrl={findingPhotoUrl}
@@ -519,22 +564,22 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-rose-900 mb-0.5">Catatan Temuan</label>
+                    <label className="block text-[11px] font-bold text-rose-950 mb-0.5">Catatan Temuan</label>
                     <input
                       type="text"
                       value={managerNotes}
                       onChange={(e) => setManagerNotes(e.target.value)}
-                      placeholder="Apa yang kurang rapi?"
-                      className="w-full text-xs p-1.5 rounded border border-rose-300 bg-white"
+                      placeholder="Apa yang kurang rapi / perlu diperbaiki?"
+                      className="w-full text-xs p-1.5 rounded-lg border border-rose-300 bg-white"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-rose-900 mb-0.5">Tugaskan ke PS</label>
+                    <label className="block text-[11px] font-bold text-rose-950 mb-0.5">Tugaskan ke PS</label>
                     <select
                       value={assignedPs}
                       onChange={(e) => setAssignedPs(e.target.value)}
-                      className="w-full text-xs p-1.5 rounded border border-rose-300 bg-white font-semibold"
+                      className="w-full text-xs p-1.5 rounded-lg border border-rose-300 bg-white font-semibold"
                     >
                       {currentDept.psList.map(ps => (
                         <option key={ps.name} value={ps.name}>
@@ -543,25 +588,20 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
                       ))}
                     </select>
 
-                    {/* MENU LANGSUNG WA KE PS TERKAIT */}
-                    {assignedPsObj?.phone ? (
+                    {/* Short WA button to assigned PS */}
+                    {assignedPsObj?.phone && (
                       <a
                         href={getWhatsAppUrl(
                           assignedPsObj.phone,
-                          `🚨 *DAILY CHECK ALSUTERS - TEMUAN DISPLAY*\n\nHalo Rekan PS *${assignedPsObj.name}*,\nAda temuan display harian di departemen *[${currentDept.code}] ${currentDept.name}*:\n\n📌 *Catatan Temuan:* ${managerNotes || 'Mohon dicek dan dirapikan sesuai standar VM'}\n👤 *Pelapor:* Manager ${managerName}\n⏱️ *Target SLA Pengerjaan:* Maksimal 1 Jam (harap segera diselesaikan)\n🔗 *Link Pengecekan & Update Foto:* https://dcalsuter2026.vercel.app/\n\nMohon bantuannya untuk segera ditindaklanjuti dan mengunggah foto hasil perbaikan di web. Terima kasih!`
+                          `🚨 *DAILY CHECK ALSUTERS - TEMUAN DISPLAY*\n\nHalo Rekan PS *${assignedPsObj.name}*,\nAda temuan display di departemen *[${currentDept.code}] ${currentDept.name}*:\n📌 *Catatan:* ${managerNotes || 'Mohon dicek dan dirapikan sesuai standar VM'}\n👤 *Manager:* ${managerName}\n⏱️ *Target SLA:* Maksimal 1 Jam\n🔗 *Link Pengecekan:* https://dcalsuter2026.vercel.app/\n\nMohon bantuannya untuk segera ditindaklanjuti. Terima kasih!`
                         )!}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full mt-2 py-1.5 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-2xs active:scale-95"
+                        className="w-full mt-1.5 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
-                        <span>Kirim WA ke {assignedPsObj.name.split(' ')[0]} ({assignedPsObj.phone})</span>
+                        <span>Kirim WA ke {assignedPsObj.name.split(' ')[0]}</span>
                       </a>
-                    ) : (
-                      <div className="text-[11px] text-rose-600 italic mt-1 flex items-center gap-1">
-                        <Phone className="w-3 h-3 text-rose-400" />
-                        <span>Nomor HP PS belum terdaftar di master data</span>
-                      </div>
                     )}
                   </div>
                 </div>
@@ -569,153 +609,245 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs"
+                className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-98"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>Simpan Pemeriksaan</span>
+                <span>
+                  {activeEditingObsId 
+                    ? 'Simpan Perubahan Temuan' 
+                    : managerStatus === 'NON_STANDARD' 
+                    ? '+ Tambah Temuan Baru (Tidak Timpa)' 
+                    : 'Simpan Standar OK'}
+                </span>
               </button>
             </form>
           </div>
 
           <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-100 flex justify-between">
-            <span>Jam Cek: {currentObservation?.inspectionTime || '-'}</span>
-            <span>Manager: {currentObservation?.managerName || managerName}</span>
+            <span>Pemeriksaan: {managerName}</span>
+            <span>Total Temuan: {allDeptFindings.length}</span>
           </div>
         </div>
 
-        {/* KARTU 3: PENYELESAIAN (PS) */}
-        <div className={`bg-white rounded-xl border p-3 flex flex-col justify-between space-y-3 ${
-          currentObservation?.status === 'RESOLVED' ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-200'
-        }`}>
+        {/* KARTU 3: PENYELESAIAN (PS) - 4 Kolom di Desktop */}
+        <div className="lg:col-span-4 bg-white rounded-xl border border-slate-200 p-3 flex flex-col justify-between space-y-3 shadow-2xs">
           <div>
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                 <span className="w-4 h-4 rounded bg-emerald-600 text-white text-[10px] flex items-center justify-center font-black">3</span>
                 PENYELESAIAN (PS)
               </span>
-              {currentObservation?.status === 'RESOLVED' ? (
-                <button
-                  type="button"
-                  onClick={() => setIsEditingPS(!isEditingPS)}
-                  className="text-xs text-emerald-700 font-bold hover:underline"
-                >
-                  {isEditingPS ? 'Batal' : 'Edit'}
-                </button>
+
+              {/* Status Badge Ringkasan */}
+              {pendingFindings.length > 0 ? (
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
+                  {pendingFindings.length} Perlu Dikerjakan
+                </span>
+              ) : resolvedFindings.length > 0 ? (
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  Semua Selesai
+                </span>
               ) : null}
             </div>
 
-            {isEditingPS || (currentObservation?.status === 'NON_STANDARD') ? (
-              <form onSubmit={handleSavePS} className="mt-2.5 space-y-2.5">
-                <div className="bg-amber-50 border border-amber-200 p-2 rounded-lg text-xs text-amber-900 space-y-1">
-                  <span className="font-bold block">Status: Perlu Perbaikan PS</span>
-                  <span className="text-[11px] text-amber-800 block">
-                    {currentObservation?.managerNotes || 'Silakan rapikan display dan lampirkan foto hasil.'}
-                  </span>
-
-                  {/* Quick follow up WA link in Card 3 */}
-                  {assignedPsObj?.phone && (
-                    <a
-                      href={getWhatsAppUrl(
-                        assignedPsObj.phone,
-                        `⏱️ *REMINDER SLA PERBAIKAN DISPLAY*\n\nHalo Rekan PS *${assignedPsObj.name}*,\nFollow up perbaikan display harian di *[${currentDept.code}] ${currentDept.name}*:\n• Catatan: "${currentObservation?.managerNotes || 'Mohon dirapikan sesuai standar VM'}"\n• Target SLA: Maksimal 1 Jam\n• Link Pengecekan & Input: https://dcalsuter2026.vercel.app/\n\nApakah sudah selesai? Harap input hasil pengerjaan via link di atas. Terima kasih!`
-                      )!}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 underline mt-0.5"
-                    >
-                      <MessageCircle className="w-3 h-3" />
-                      <span>Follow Up WA ke {assignedPsObj.name} ({assignedPsObj.phone})</span>
-                    </a>
-                  )}
-                </div>
-
-                <div>
-                  <PhotoPickerInput
-                    photoUrl={resolutionPhotoUrl}
-                    onPhotoChange={setResolutionPhotoUrl}
-                    label="Foto Hasil Perbaikan (Kamera / Galeri)"
-                    cameraTitle="Ambil Foto Hasil Perbaikan Display"
-                    accentColor="emerald"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-0.5">Catatan Perbaikan</label>
-                  <input
-                    type="text"
-                    value={psNotes}
-                    onChange={(e) => setPsNotes(e.target.value)}
-                    placeholder="Contoh: Display sudah dirapikan sesuai standar"
-                    className="w-full text-xs p-1.5 rounded border border-slate-200"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-0.5">Nama PS Pelaksana</label>
-                  <select
-                    value={psExecutorName}
-                    onChange={(e) => setPsExecutorName(e.target.value)}
-                    className="w-full text-xs p-1.5 rounded border border-slate-200 font-semibold"
-                  >
-                    {currentDept.psList.map(ps => (
-                      <option key={ps.name} value={ps.name}>{ps.name}</option>
-                    ))}
-                    {currentDept.apsList.map(aps => (
-                      <option key={aps.name} value={aps.name}>{aps.name} (APS)</option>
-                    ))}
-                  </select>
-                </div>
-
+            {/* Filter Tabs untuk Temuan PS */}
+            {allDeptFindings.length > 1 && (
+              <div className="flex items-center gap-1 mt-2 p-1 bg-slate-100 rounded-lg text-[10px] font-bold">
                 <button
-                  type="submit"
-                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs"
+                  type="button"
+                  onClick={() => setPsFilter('ALL')}
+                  className={`flex-1 py-1 rounded text-center transition-all ${
+                    psFilter === 'ALL' ? 'bg-white text-slate-900 shadow-2xs font-extrabold' : 'text-slate-600'
+                  }`}
                 >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Selesai (RESOLVED)</span>
+                  Semua ({allDeptFindings.length})
                 </button>
-              </form>
-            ) : currentObservation?.status === 'RESOLVED' ? (
-              <div className="mt-2.5 space-y-2">
-                <div className="aspect-4/3 rounded-lg overflow-hidden bg-slate-100 border border-emerald-300">
-                  {currentObservation.resolutionPhotoUrl ? (
-                    <img
-                      src={currentObservation.resolutionPhotoUrl}
-                      alt="Hasil Perbaikan"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
-                      Foto tidak tersedia
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-emerald-50 p-2 rounded-lg text-xs border border-emerald-200">
-                  <span className="font-bold text-emerald-900 block text-[11px]">Selesai Diperbaiki</span>
-                  <span className="text-[11px] text-emerald-800">
-                    {currentObservation.psNotes || 'Telah dirapikan sesuai standar VM.'}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-2.5 py-8 flex flex-col items-center justify-center text-center text-slate-400">
-                <CheckCircle2 className="w-8 h-8 text-slate-300 mb-1" />
-                <span className="text-xs font-semibold text-slate-600">Tidak ada tindakan perbaikan</span>
-                <span className="text-[11px] text-slate-400">Display dalam kondisi standar</span>
+                <button
+                  type="button"
+                  onClick={() => setPsFilter('PENDING')}
+                  className={`flex-1 py-1 rounded text-center transition-all ${
+                    psFilter === 'PENDING' ? 'bg-rose-600 text-white shadow-2xs font-extrabold' : 'text-rose-700'
+                  }`}
+                >
+                  Belum ({pendingFindings.length + inProgressFindings.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPsFilter('RESOLVED')}
+                  className={`flex-1 py-1 rounded text-center transition-all ${
+                    psFilter === 'RESOLVED' ? 'bg-emerald-600 text-white shadow-2xs font-extrabold' : 'text-emerald-700'
+                  }`}
+                >
+                  Sudah ({resolvedFindings.length})
+                </button>
               </div>
             )}
+
+            {/* DAFTAR TEMUAN PS DENGAN PENGISIAN SUPER MUDAH */}
+            <div className="mt-2.5 space-y-3 max-h-[620px] overflow-y-auto pr-0.5">
+              {displayFindings.length > 0 ? (
+                displayFindings.map((finding, idx) => (
+                  <FindingItemCard
+                    key={finding.id}
+                    finding={finding}
+                    dept={currentDept}
+                    index={idx}
+                    onSavePSExecution={onSavePSExecution}
+                    onOpenPhotoVerification={onOpenPhotoVerification}
+                    getWhatsAppUrl={getWhatsAppUrl}
+                  />
+                ))
+              ) : (
+                <div className="py-8 flex flex-col items-center justify-center text-center text-slate-400">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-300 mb-2" />
+                  <span className="text-xs font-bold text-slate-700">Display Standar OK</span>
+                  <span className="text-[11px] text-slate-400 mt-0.5">
+                    Tidak ada temuan non-standar yang perlu dikerjakan oleh rekan PS.
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-100 flex justify-between">
-            <span>Waktu: {currentObservation?.executionTime || '-'}</span>
-            <span>PS: {currentObservation?.resolvedByPsName || assignedPs || '-'}</span>
+            <span>SLA Maksimal: 1 Jam</span>
+            <span>PIC: {currentDept.psList.map(p => p.name).join(', ')}</span>
           </div>
         </div>
 
       </div>
 
-      {/* 5. KONTAK WHATSAPP LANGSUNG SEMUA PS DI DEPT INI */}
-      <div className="bg-white p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+      {/* 5. DAFTAR & RIWAYAT LENGKAP SEMUA TEMUAN DEPARTEMEN INI (JANGAN HILANG) */}
+      {allDeptFindings.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                <Layers className="w-3.5 h-3.5" />
+              </div>
+              <h3 className="text-xs font-black text-slate-900">
+                RIWAYAT SEMUA TEMUAN [{currentDept.code}] {currentDept.name} ({allDeptFindings.length} Temuan)
+              </h3>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[11px]">
+              <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-extrabold border border-rose-200">
+                🔴 {pendingFindings.length} Belum di Progres
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold border border-emerald-200">
+                🟢 {resolvedFindings.length} Sudah di Progres
+              </span>
+            </div>
+          </div>
+
+          {/* Grid Riwayat Temuan Lengkap */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {allDeptFindings.map((item, i) => {
+              const isItemResolved = item.status === 'RESOLVED';
+              return (
+                <div
+                  key={item.id}
+                  className={`p-3 rounded-xl border transition-all ${
+                    isItemResolved
+                      ? 'bg-emerald-50/30 border-emerald-200'
+                      : 'bg-rose-50/30 border-rose-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-slate-900 text-white">
+                        #{i + 1}
+                      </span>
+                      <span className="text-xs font-bold text-slate-800">
+                        Oleh: {item.managerName}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        ({item.inspectionTime || '-'} WIB)
+                      </span>
+                    </div>
+
+                    {/* KETERANGAN STATUS */}
+                    {isItemResolved ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        🟢 Sudah di Progres
+                      </span>
+                    ) : item.status === 'IN_PROGRESS' ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
+                        🟡 Sedang Dikerjakan
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-300">
+                        🔴 Belum di Progres
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Foto Temuan VS Foto Hasil */}
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <div>
+                      <span className="text-[9px] font-bold text-rose-800 uppercase block mb-0.5">
+                        Foto Temuan Manager:
+                      </span>
+                      <div className="aspect-4/3 rounded-lg overflow-hidden bg-slate-100 border border-rose-200">
+                        {item.findingPhotoUrl ? (
+                          <img
+                            src={item.findingPhotoUrl}
+                            alt="Temuan"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-400">
+                            Tanpa Foto
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-700 mt-1 line-clamp-2">
+                        {item.managerNotes || 'Catatan temuan tidak disertakan'}
+                      </p>
+                    </div>
+
+                    <div>
+                      <span className="text-[9px] font-bold text-emerald-800 uppercase block mb-0.5">
+                        Foto Hasil PS:
+                      </span>
+                      <div className="aspect-4/3 rounded-lg overflow-hidden bg-slate-100 border border-emerald-200">
+                        {item.resolutionPhotoUrl ? (
+                          <img
+                            src={item.resolutionPhotoUrl}
+                            alt="Hasil Perbaikan"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-400 italic">
+                            Belum Ada Hasil
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-700 mt-1 line-clamp-2">
+                        {item.psNotes || (isItemResolved ? 'Display dirapikan' : 'Belum diisi')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-100/80">
+                    <span>
+                      PIC PS: <strong>{item.resolvedByPsName || item.assignedPsName || '-'}</strong>
+                    </span>
+                    {isItemResolved && (
+                      <span className="text-emerald-700 font-bold">
+                        Selesai: {item.executionTime || '-'} WIB
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 6. KONTAK WHATSAPP LANGSUNG SEMUA PS DI DEPT INI */}
+      <div className="bg-white p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
             <MessageCircle className="w-4 h-4" />
@@ -725,7 +857,7 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
               Kontak WhatsApp PS [{currentDept.code}] {currentDept.name}
             </h3>
             <p className="text-[11px] text-slate-500">
-              Klik nama PS untuk langsung membuka chat WhatsApp
+              Klik nama PS untuk langsung membuka chat WhatsApp dengan peringatan SLA 1 jam & link Vercel
             </p>
           </div>
         </div>
@@ -734,7 +866,7 @@ export const SinglePageDeptView: React.FC<SinglePageDeptViewProps> = ({
           {currentDept.psList.map(ps => {
             const waUrl = getWhatsAppUrl(
               ps.phone,
-              `Halo Rekan PS *${ps.name}*, saya Manager *${managerName}*.\nTerkait pengecekan display harian departemen *[${currentDept.code}] ${currentDept.name}*.\n⏱️ Target SLA Pengerjaan: Maksimal 1 Jam.\n🔗 Link Pengecekan: https://dcalsuter2026.vercel.app/`
+              `Halo Rekan PS *${ps.name}*, saya Manager *${managerName}*.\nTerkait pengecekan display harian departemen *[${currentDept.code}] ${currentDept.name}*.\n⏱️ Target SLA Pengerjaan: Maksimal 1 Jam.\n🔗 Link Pengecekan & Input Foto: https://dcalsuter2026.vercel.app/\nMohon bantuannya ya.`
             );
 
             return ps.phone ? (

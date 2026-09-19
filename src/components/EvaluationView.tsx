@@ -19,7 +19,7 @@ import {
   Layers,
   FileDown
 } from 'lucide-react';
-import { DailyObservation, Department, ZoneId } from '../types';
+import { DailyObservation, Department, ZoneId, InspectionStatus } from '../types';
 import { DEPARTMENTS, MANAGERS, ZONES } from '../data/masterData';
 
 interface EvaluationViewProps {
@@ -133,8 +133,21 @@ export const EvaluationView: React.FC<EvaluationViewProps> = ({
         ? Math.round((onTimeSLACount / durations.length) * 100) 
         : 100;
 
-      // Current department observation today
-      const currentTodayObs = observations.find(o => o.deptCode === dept.code && o.date === currentDate);
+      // Current department observation today (supports multiple findings per dept)
+      const currentTodayObsList = observations.filter(o => o.deptCode === dept.code && o.date === currentDate);
+      const hasPending = currentTodayObsList.some(o => o.status === 'NON_STANDARD');
+      const hasInProgress = currentTodayObsList.some(o => o.status === 'IN_PROGRESS');
+      const hasResolved = currentTodayObsList.some(o => o.status === 'RESOLVED');
+      const hasStd = currentTodayObsList.some(o => o.status === 'STANDARD');
+      const currentStatus: InspectionStatus | 'UNCHECKED' = hasPending 
+        ? 'NON_STANDARD' 
+        : hasInProgress 
+        ? 'IN_PROGRESS' 
+        : hasResolved 
+        ? 'RESOLVED' 
+        : hasStd 
+        ? 'STANDARD' 
+        : 'UNCHECKED';
 
       return {
         dept,
@@ -144,7 +157,7 @@ export const EvaluationView: React.FC<EvaluationViewProps> = ({
         durationsCount: durations.length,
         slaCompliancePercent,
         lastResolvedObs: durations.length > 0 ? durations[durations.length - 1].obs : null,
-        currentStatus: currentTodayObs?.status || 'UNCHECKED',
+        currentStatus,
         assignedPs: dept.psList[0]?.name || '-'
       };
     })
